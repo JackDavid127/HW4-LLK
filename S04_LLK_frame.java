@@ -1,7 +1,9 @@
+package homework4;
 import java.awt.*;
 import java.math.*;
 import java.awt.event.*;
 import javax.swing.*;
+
 class Spot{
 	public int x,y;
 	public Spot() {}
@@ -9,6 +11,26 @@ class Spot{
 		x=a;y=b;
 	}
 }
+
+class Solution{
+	public Spot start, end;
+	public Spot corner1, corner2;
+	public int kind;
+	public Solution(int k, Spot s, Spot e, Spot c1, Spot c2){
+		kind = k;
+		start = s;  end = e;
+		corner1 = c1; corner2 = c2;
+	}
+	public Solution(int k, Spot s, Spot e){
+		kind = k;
+		start = s; end = e;
+	}
+	public Solution(int k, Spot s, Spot e, Spot c1){
+		kind = k;
+		start = s; end = e; corner1 = c1;
+	}
+}
+
 class Match{
 	private int [][]map=new int[32][32];
 	private int []cnt=new int[21];
@@ -37,14 +59,38 @@ class Match{
 				tmp[x]--;
 				map[i][j]=x;
 			}
-		//Print();
+		Print();
 	}
+	
+	public void AdjacentSolution(){// find the adjacent same ones
+		for(int i = 1;i <= nrow; i++)
+			for(int j = 1; j < ncol; j++){
+				if(map[i][j] == map[i][j+1] && map[i][j] != 0) 
+					AddSolution(new Solution(map[i][j], new Spot(i,j), new Spot(i, j+1)));
+			}
+		for(int i = 1; i < nrow; i++)
+			for(int j = 1; j<= ncol; j++){
+				if(map[i][j] == map[i+1][j] && map[i][j] != 0 ) 
+					AddSolution(new Solution(map[i][j], new Spot(i,j), new Spot(i+1, j)));
+			}
+	}
+	
+	public void DfsSolution(Spot begin, int corner, int direction, ){
+		
+	}
+	
+	public void AddSolution(Solution a){
+		
+	}
+	
 	public Match(){
 		nrow=ncol=nkind=20;
 		nres=2;nhint=5;
 		int i;
 		for (i=1;i<=nkind;i++) cnt[i]=nrow*ncol/nkind;
 		Reshuffle();
+		
+		
 	}
 	public void Display(){//Repaint
 	}
@@ -52,6 +98,7 @@ class Match{
 		return (map[x.x][x.y]==map[y.x][y.y]);
 	}
 	public boolean isConnected(Spot x,Spot y){
+		
 		return false;
 	}
 	public void FindOnePair(Spot x,Spot y){
@@ -70,26 +117,49 @@ class Match{
 }
 public class S04_LLK_frame extends JFrame{
 	private Match match=new Match();
-	private JLabel admin_l=new JLabel("Administrator Control Panel:");
-	private JTextArea admin_dis=new JTextArea(11,40);
-	private JPanel admin_p=new JPanel();
-	private JButton admin_add=new JButton("Add New Books");
+	private Box admin_v= Box.createVerticalBox();
+	private JPanel admin_s0 =new JPanel();
+	private JPanel admin_e0 =new JPanel();
+	private JButton admin_start =new JButton("START");
+	private JButton admin_exit =new JButton("EXIT");
+	private JTextField admin_t = new JTextField("连 连 看");
+	private JTextField admin_name = new JTextField("name*4");
 	public S04_LLK_frame(){
 		setSize(1000,700);
 		setTitle("Lian Lian Kan");
 		setVisible(true);
-		admin_add.addActionListener(new ActionListener(){
+		admin_start.addActionListener(new ActionListener(){
 			@Override
 			public void actionPerformed(ActionEvent e){
+				System.exit(0);
 			}
 		});
-		admin_p.add(admin_l);
-		admin_p.add(admin_add);
-		admin_p.add(admin_dis);
-		admin_dis.setLineWrap(true);
-		admin_dis.setEditable(false);
+		admin_exit.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent e){
+				System.exit(0);
+			}
+		});
+		admin_t.setFont(new Font("楷体",50,100)); //title
+		admin_t.setBorder(null);
+		admin_t.setEditable(false);
+		admin_t.setHorizontalAlignment(JTextField.CENTER);
+
+		admin_name.setFont(new Font("楷体",50,20)); //title
+		admin_name.setBorder(null);
+		admin_name.setEditable(false);
+		admin_name.setHorizontalAlignment(JTextField.CENTER);	
+		
+		admin_s0.add(admin_start);
+		admin_e0.add(admin_exit);
+		
+		admin_v.add(admin_t);
+		admin_v.add(admin_s0);
+		admin_v.add(admin_e0);
+		admin_v.add(admin_name);
+		
 		getContentPane().setLayout(new BorderLayout(5,5));
-		getContentPane().add("North",admin_p);
+		getContentPane().add(admin_v, BorderLayout.CENTER);
 	}
 	public static void main(String []args){
 		S04_LLK_frame gui=new S04_LLK_frame();
