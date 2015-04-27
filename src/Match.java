@@ -1,4 +1,6 @@
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.ThreadLocalRandom;
 
 class Match{
@@ -24,7 +26,7 @@ class Match{
 
 	public Match(int len){
 		nrow=ncol=len;
-		nkind = len;
+		nkind = 24;
 		nres=2;nhint=5;
 		int i;
 		for (i=1;i<=nkind;i++) cnt[i]=nrow*ncol/nkind;
@@ -133,6 +135,91 @@ class Match{
 		}
 		return find;
 	}
+	/*
+	public Solution bfs(Spot start, Spot end){
+		Solution ans = new Solution(map[end.x][end.y], start, end);
+		Queue<Node> Q = new LinkedList<Node>();
+		visited[start.x][start.y] = true;
+		for(int i = 0;i < 4; i++){
+			Spot nb = new Spot(start.x+dx[i], start.y+dy[i]);
+			if(!inMap(nb)) continue;
+			visited[nb.x][nb.y] = true;
+			if(nb.x == end.x && nb.y == end.y) return ans;
+			if(map[nb.x][nb.y] != 0 ) continue;
+			Q.add(new Node(nb, 0, i));
+		}
+		while(!Q.isEmpty()){
+			Node tmp = Q.remove();
+			for(int i=0; i<4; i++){
+				Spot nb = new Spot(tmp.s.x+dx[i], tmp.s.y+dy[i]);
+				if(!inMap(nb)) continue;
+				if(visited[nb.x][nb.y]) continue;
+				visited[nb.x][nb.y] = true;
+				if(nb.x == end.x && nb.y == end.y){
+					if(tmp.corner == 2 && tmp.direction != i) continue;
+					else {
+						if(tmp.c1 != null) ans.corner1 = new Spot(tmp.c1);
+						if(tmp.c2 != null) ans.corner2 = new Spot(tmp.c2);
+						if(tmp.direction == i) return ans;
+						else {
+							if(tmp.corner == 0) ans.corner1 = new Spot(tmp.s);
+							else if(tmp.corner == 1) ans.corner2 = new Spot(tmp.s);
+							return ans;
+						}
+					}
+				}
+				if(map[nb.x][nb.y] != 0) continue;
+				if(tmp.direction == i ) Q.add(new Node(nb, tmp.corner, i));
+				else {
+					if(tmp.corner<2) {
+						Node ntmp = new Node(nb, tmp.corner+1, i);
+						if(tmp.corner == 0) ntmp.c1 = new Spot(tmp.s);
+						else {
+							ntmp.c1 = new Spot(tmp.c1);
+							ntmp.c2 = new Spot(tmp.s);
+						}
+						Q.add(ntmp);
+					}
+				}
+			}
+		}
+		return null;
+	}
+	*/
+	
+	public Solution bfs(Spot start, Spot end){
+		Solution ans = new Solution(map[end.x][end.y], start, end);
+		Queue<Spot> Q = new LinkedList<Spot>();
+		visited[start.x][start.y] = true;
+		Q.add(start);
+		Spot levele = start,tmpe = start; int level = 0;
+		while(!Q.isEmpty()){
+			Spot now = Q.remove();
+			for(int i=0; i<4; i++){
+				Spot nb = now;
+				int xx = dx[i], yy = dy[i];
+				while(true){
+					nb = new Spot(nb.x+xx, nb.y+yy);
+					if(!inMap(nb)) break;
+					if(visited[nb.x][nb.y]) break;
+					visited[nb.x][nb.y] = true;
+					if(nb.x == end.x && nb.y == end.y) {
+						//System.out.printf("%d\n",level);
+						return ans;
+					}
+					if(map[nb.x][nb.y] != 0) break;
+					Q.add(nb);
+					tmpe = nb;
+				}
+			}
+			if(now == levele) {
+				level++;
+				if(level == 3) break;
+				levele = tmpe;
+			}
+		}
+		return null;
+	}
 	
 	public void Display(){//Repaint
 	
@@ -152,8 +239,9 @@ class Match{
 			for(int j = 0; j<=ncol+1; j++){
 				visited[i][j] = false;
 			}
-		corners[0] = corners[1] = corners[2] = corners[3] = null;
+		//corners[0] = corners[1] = corners[2] = corners[3] = null;
 		//System.out.printf("(%d, %d):%d    (%d,%d):%d   ", begin.x, begin.y, begin.k, end.x, end.y, end.k);
+		/*//dfs
 		if(dfs(begin, 0, 5, end) == true){
 			//System.out.printf("connected!\n");
 			Solution tmp = new Solution(map[end.x][end.y], begin, end);
@@ -165,6 +253,8 @@ class Match{
 			//System.out.printf("fail!\n");
 			return null;
 		}
+		*/
+		return bfs(begin, end);
 	}
 	
 	/*public Solution FindOnePair(Spot begin,Spot end){
@@ -190,12 +280,13 @@ class Match{
 				map[marked.x][marked.y] = map[s.x][s.y] = 0;
 				marked=null;
 				//Hints.delete(tmp);
+				/*//for debug use
 				System.out.printf("(%d,%d):%d - ", tmp.start.x, tmp.start.y, tmp.kind);
-				if(tmp.corner1!=null) System.out.printf("(%d,%d) - ", tmp.corner1.x, tmp.corner1.y);
-				if(tmp.corner2!=null) System.out.printf("(%d,%d) - ", tmp.corner2.x, tmp.corner2.y);
-				System.out.printf("(%d,%d)\n", tmp.end.x, tmp.end.y);
-				
-				
+				if(tmp.corner1!=null) {
+					System.out.printf("(%d,%d) - ", tmp.corner1.x, tmp.corner1.y);				
+					if(tmp.corner2!=null) System.out.printf("(%d,%d) - ", tmp.corner2.x, tmp.corner2.y);
+				}
+				System.out.printf("(%d,%d)\n", tmp.end.x, tmp.end.y);*/				
 				return tmp;
 			}
 		}
@@ -206,7 +297,7 @@ class Match{
 		return marked;
 	}
 	
-	public void GiveHint(){
-		
+	public Solution GiveHint(){
+		return null;
 	}
 }
