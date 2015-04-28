@@ -15,4 +15,9 @@ class Solution{
 		kind = k;
 		start = s; end = e; corner1 = c1;
 	}
+	public Solution(Solution s){
+		start = new Spot(s.start);
+		end = new Spot(s.end);
+		kind = s.kind;
+	}
 }
