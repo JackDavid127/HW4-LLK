@@ -1,18 +1,19 @@
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.ThreadLocalRandom;
 
 class Match{
-	private int [][]map=new int[32][32];
-	private int []cnt=new int[30];
-	private int nrow,ncol,nkind;
+	private int [][]map=new int[32][32];						// 游戏棋盘	
+	private int []cnt=new int[100];								// 各种类图片剩余计数
+	private int nrow,ncol,nkind;								// 长、宽、种类
 	private int nres,nhint;
-	private Spot marked = null;
-	private int dx[] = {1, 0, -1, 0}, dy[] = {0, 1, 0, -1};	
-	private boolean visited[][] = new boolean[32][32];
-	private Spot corners[] = new Spot[4];
-	private SolutionList Hints = new SolutionList(30);
+	private int rest;											// 图中剩余未消块数
+	private Spot marked = null;									// marked用于记录用户之前点击的其他图片
+	private int dx[] = {1, 0, -1, 0}, dy[] = {0, 1, 0, -1};		// 搜索用 - 方向
+	private boolean visited[][] = new boolean[32][32];			// 搜索用 - 已访问记录
+	private SolutionList Hints = new SolutionList(30);			// 提示对集合
+	
+	private boolean reshuffle = false;							// 刷新标记
+	
 	public void Print(){//Just for Debugging
 		System.out.println("nrow="+nrow+" ncol="+ncol+" nkind="+nkind+" nrestart="+nres+" nhint="+nhint);
 		System.out.println("The Count Array:");
@@ -24,171 +25,107 @@ class Match{
 		}
 	}
 
-	public Match(int len){
-		nrow=ncol=len;
-		nkind = 24;
+	public Match(int len){										// 初始化
+		nrow=ncol=len;					
+		rest = nrow * ncol;
+		nkind = rest / 8;										// 每种图片四对
 		nres=2;nhint=5;
 		int i;
-		for (i=1;i<=nkind;i++) cnt[i]=nrow*ncol/nkind;
-		for(i = 1; i <= nrow; i++)
+		for (i=1;i<nkind;i++) cnt[i]=8;							// 初始时每种图片都有8块
+		cnt[nkind] = nrow * ncol - 8 * (nkind - 1);				// 最后一种依总块数而定
+		for(i = 1; i <= nrow; i++)								// 标记棋盘有图片处
 			for(int j = 1; j<= ncol; j++)
 				map[i][j] = 1;
-		Reshuffle();
-		
+		Reshuffle();											// 刷新棋盘
 	}
 	
-	public void Reshuffle(){
-		int []tmp=new int[30];
+	public boolean getReshuffle(){								// 向外传递是否需要刷新
+		return reshuffle;
+	}
+	
+	public void resetReshuffle(){								// 刷新完成后重置该标记
+		reshuffle = false;
+	}
+	
+	public void Reshuffle(){									// 刷新棋盘		
+		int []tmp=new int[100];		
 		int i,j,x;
-		for (i=1;i<=nkind;i++) tmp[i]=cnt[i];
+		for (i=1;i<=nkind;i++) tmp[i]=cnt[i];					// 种类临时计数
 		for (i=1;i<=nrow;i++)
 			for (j=1;j<=ncol;j++)
 				if(map[i][j]>0){
 					do{
-						x=(int)(nkind*Math.random())+1;
+						x=(int)(nkind*Math.random())+1;			// 随机分配图片，确保所分配图片种类还有剩余
 						//x = (int)(nkind*ThreadLocalRandom.current().nextDouble())+1;
 					}while (tmp[x]==0);
 					tmp[x]--;
 					map[i][j]=x;
 				}
-		Print();
+		Hints.clear();										
+		AddSolution();											// 寻找可行解
+		//Hints.print();
+		//Print();
 	}
-	/*
-	public void AdjacentSolution(){// find the adjacent same ones
-		for(int i = 1;i <= nrow; i++)
-			for(int j = 1; j < ncol; j++){
-				if(map[i][j] == map[i][j+1] && map[i][j] != 0) 
-					Hints.add(new Solution(map[i][j], new Spot(i,j), new Spot(i, j+1)));
-			}
-		for(int i = 1; i < nrow; i++)
-			for(int j = 1; j<= ncol; j++){
-				if(map[i][j] == map[i+1][j] && map[i][j] != 0 ) 
-					Hints.add(new Solution(map[i][j], new Spot(i,j), new Spot(i+1, j)));
-			}
-	}*/
 	
-	public int getMap(int i, int j){
+	// 可行解的维护方案： 初始时搜索全盘可行解，每次消除后更新可行解集合，可行解集合为空时再进行一次全盘搜索， 全盘搜索无结果时刷新。 
+	public void AddSolution(){									// 全盘搜索添加可行解
+		for(int i = 1; i<nrow; i++)
+			for(int j = 1; j<ncol; j++){
+				if (map[i][j] == 0) continue;
+				for(int p = 0; p<= nrow+1; p++)
+					for(int q = 0; q<=ncol+1; q++)
+						visited[p][q] = false;
+				bfsSolution(new Spot(i, j));
+				//if (tmp != null) Hints.add(tmp);
+			}
+	}
+	
+	public int getMap(int i, int j){							// 返回map[i][j]的值
 		return map[i][j];
 	}
 	
-	public boolean inMap( Spot s ){
+	public boolean inMap( Spot s ){								// 判断是否在棋盘内， 搜索用
 		if(s.x>=0 && s.y>=0 && s.x<=nrow+1 && s.y<=ncol + 1) return true;
 		return false;
 	}
-	/*
-	public void DfsSolution(Spot now, int corner, int direction, Spot begin){
-		if(corner > 2) return;
-		if(now.k == begin.k){
-			int kind = map[now.x][now.y];
-			Solution tmp = new Solution(kind, begin, now);
-			if (corner >= 1) tmp.corner1 = corners[0];
-			if (corner == 2) tmp.corner2 = corners[1];
-			Hints.add(tmp);
-			return;
-		}
-		else if(now.k != 0) return;
-		for(int i = 0; i < 4; i++){
-			Spot tmp = new Spot(now.x + dx[i], now.y + dy[i]);
-			tmp.k = map[tmp.x][tmp.y];
-			if (!inMap(tmp)) continue;
-			if (tmp.k != 0 && tmp.k != begin.k || visited[tmp.x][tmp.y]) continue;
-			if (direction!= 5 && direction!= i) { // same direction or not
-				corners[corner] = tmp;
-				corner++;
-			}
-			visited[tmp.x][tmp.y] = true;
-			DfsSolution(tmp, corner, i, begin);
-			visited[tmp.x][tmp.y] = false;
-			if (direction!= 5 && direction!= i) {
-				corner --;
-				corners[corner] = null;
-			}
-		}
-	}
-	*/
-	public boolean dfs(Spot now, int corner, int direction, Spot end){
-		if(corner > 2) return false;
-		if(now.x == end.x && now.y == end.y){			
-			return true;
-		}		
-		if(visited[now.x][now.y] == false) visited[now.x][now.y] = true;
-		else if(now.k!=0) return false;
-		boolean find = false;
-		for(int i = 0; i < 4; i++){
-			Spot tmp = new Spot(now.x + dx[i], now.y + dy[i]);
-			if (!inMap(tmp)) continue;
-			tmp.k = map[tmp.x][tmp.y];
-			if (tmp.k != 0 && tmp.k != end.k || visited[tmp.x][tmp.y]) continue;
-			if (direction!= 5 && direction!= i) { // same direction or not
-				if(corner>1) continue;
-				corners[corner] = now;
-				corner++;
-			}
-			visited[tmp.x][tmp.y] = true;
-			find = dfs(tmp, corner, i, end);
-			if ( find ) break;
-			visited[tmp.x][tmp.y] = false;
-			if (direction!= 5 && direction!= i) {
-				corner --;
-				corners[corner] = null;
-			}
-		}
-		return find;
-	}
-	/*
-	public Solution bfs(Spot start, Spot end){
-		Solution ans = new Solution(map[end.x][end.y], start, end);
-		Queue<Node> Q = new LinkedList<Node>();
-		visited[start.x][start.y] = true;
-		for(int i = 0;i < 4; i++){
-			Spot nb = new Spot(start.x+dx[i], start.y+dy[i]);
-			if(!inMap(nb)) continue;
-			visited[nb.x][nb.y] = true;
-			if(nb.x == end.x && nb.y == end.y) return ans;
-			if(map[nb.x][nb.y] != 0 ) continue;
-			Q.add(new Node(nb, 0, i));
-		}
-		while(!Q.isEmpty()){
-			Node tmp = Q.remove();
-			for(int i=0; i<4; i++){
-				Spot nb = new Spot(tmp.s.x+dx[i], tmp.s.y+dy[i]);
-				if(!inMap(nb)) continue;
-				if(visited[nb.x][nb.y]) continue;
-				visited[nb.x][nb.y] = true;
-				if(nb.x == end.x && nb.y == end.y){
-					if(tmp.corner == 2 && tmp.direction != i) continue;
-					else {
-						if(tmp.c1 != null) ans.corner1 = new Spot(tmp.c1);
-						if(tmp.c2 != null) ans.corner2 = new Spot(tmp.c2);
-						if(tmp.direction == i) return ans;
-						else {
-							if(tmp.corner == 0) ans.corner1 = new Spot(tmp.s);
-							else if(tmp.corner == 1) ans.corner2 = new Spot(tmp.s);
-							return ans;
-						}
-					}
-				}
-				if(map[nb.x][nb.y] != 0) continue;
-				if(tmp.direction == i ) Q.add(new Node(nb, tmp.corner, i));
-				else {
-					if(tmp.corner<2) {
-						Node ntmp = new Node(nb, tmp.corner+1, i);
-						if(tmp.corner == 0) ntmp.c1 = new Spot(tmp.s);
-						else {
-							ntmp.c1 = new Spot(tmp.c1);
-							ntmp.c2 = new Spot(tmp.s);
-						}
-						Q.add(ntmp);
-					}
-				}
-			}
-		}
-		return null;
-	}
-	*/
 	
-	public Solution bfs(Spot start, Spot end){
-		Solution ans = new Solution(map[end.x][end.y], start, end);
+	// 搜索策略：广度优先， 对每个点尽可能的向四个方向延伸，下一层即表示拐点，搜索两层即可
+	public void bfsSolution(Spot start){						// 对一个点搜索所有可以与他配对的解
+		Queue<Spot> Q = new LinkedList<Spot>();					// 用队列记录
+		visited[start.x][start.y] = true;
+		int k = map[start.x][start.y];							
+		Q.add(start);											
+		Spot levele = start,tmpe = start; 						// levele记录了一层的末尾结点， tmpe为搜索过程中下一层的临时最后结点
+		int level = 0;											// level记录了搜索层数
+		while(!Q.isEmpty()){
+			Spot now = Q.remove();
+			for(int i=0; i<4; i++){
+				Spot nb = now;
+				int xx = dx[i], yy = dy[i];
+				while(true){
+					nb = new Spot(nb.x+xx, nb.y+yy);
+					if(!inMap(nb)) break;
+					if(visited[nb.x][nb.y]) break;
+					visited[nb.x][nb.y] = true;
+					if(map[nb.x][nb.y] == k) {
+						//System.out.printf("%d\n",level);
+						Hints.add(new Solution(start, nb));		// 找到一个可达的相同种类的点即将结果对加入可行解集合
+					}
+					if(map[nb.x][nb.y] != 0) break;
+					Q.add(nb);
+					tmpe = nb;
+				}
+			}
+			if(now == levele) {									// 若已搜索完一层则进入下一层，重新标记该层末尾
+				level++;
+				if(level == 3) break;
+				levele = tmpe;
+			}
+		}
+	}
+	
+	public Solution bfs(Spot start, Spot end){					// 对已知两点搜索， 看其是否为可行对，搜索过程基本同上。若不是则返回null
+		Solution ans = new Solution(start, end);
 		Queue<Spot> Q = new LinkedList<Spot>();
 		visited[start.x][start.y] = true;
 		Q.add(start);
@@ -203,7 +140,7 @@ class Match{
 					if(!inMap(nb)) break;
 					if(visited[nb.x][nb.y]) break;
 					visited[nb.x][nb.y] = true;
-					if(nb.x == end.x && nb.y == end.y) {
+					if(nb.x == end.x && nb.y == end.y) {		// 若搜到结束点， 返回即可
 						//System.out.printf("%d\n",level);
 						return ans;
 					}
@@ -221,83 +158,83 @@ class Match{
 		return null;
 	}
 	
-	public void Display(){//Repaint
-	
-	}
-	
-	public boolean isSame(Spot a,Spot b){
+	public boolean isSame(Spot a,Spot b){ 						// 判断两点是否为同一类型且不是同一点
 		return (map[a.x][a.y]==map[b.x][b.y]) && !(a.x == b.x && a.y == b.y);
 	}
 	
-	public Solution isConnected(Spot begin,Spot end){
+	public Solution isConnected(Spot begin,Spot end){			// 判断两点是否相连， 是则返回结果对，否则返回null
 		if(begin == null || end == null) return null;
 		//Solution tmp = Hints.search(begin, end);
-		//if(tmp!= null) return tmp;
-		begin.k = map[begin.x][begin.y];
-		end.k = map[end.x][end.y];
-		for(int i = 0; i<=nrow+1; i++)
+		for(int i = 0; i<=nrow+1; i++)							// 重置visited数组
 			for(int j = 0; j<=ncol+1; j++){
 				visited[i][j] = false;
 			}
-		//corners[0] = corners[1] = corners[2] = corners[3] = null;
 		//System.out.printf("(%d, %d):%d    (%d,%d):%d   ", begin.x, begin.y, begin.k, end.x, end.y, end.k);
-		/*//dfs
-		if(dfs(begin, 0, 5, end) == true){
-			//System.out.printf("connected!\n");
-			Solution tmp = new Solution(map[end.x][end.y], begin, end);
-			if(corners[0] != null) tmp.corner1 = corners[0];
-			if(corners[1] != null) tmp.corner2 = corners[1];
-			return tmp;
-		}
-		else {
-			//System.out.printf("fail!\n");
-			return null;
-		}
-		*/
 		return bfs(begin, end);
 	}
 	
-	/*public Solution FindOnePair(Spot begin,Spot end){
-		return Solution
-	}*/
-	
-	public Solution Clickon(Spot s){//Mouse Clicking on the spot s
+	public Solution Clickon(Spot s){							// 当鼠标按在s上时的操作
 		//System.out.printf("clickon:(%d,%d):%d \n", s.x, s.y, map[s.x][s.y] );
-		if(marked==null){
+		if(!inMap(s)) return null;
+		if(marked==null){										// 若无上一个点，如第一次按点或上一次消除了两个点
 			marked=s;
 			return null;
 		}
-		else if(!isSame(marked,s)){
+		else if(!isSame(marked,s)){								// 有上一个点时， 若两点种类不同则肯定不能消除
 			marked=s;
 			return null;
 		}
 		else {
 			//System.out.printf("dfs:(%d,%d):%d \n", marked.x, marked.y, map[marked.x][marked.y]); 
 			Solution tmp = isConnected(marked,s);
-			if(tmp == null) marked=s;		
+			if(tmp == null) marked=s;							// 若未相连则标记该点，等待下一次按键
 			else{
-				cnt[tmp.kind] -=2;
-				map[marked.x][marked.y] = map[s.x][s.y] = 0;
-				marked=null;
-				//Hints.delete(tmp);
+				cnt[map[s.x][s.y]] -=2;							// 消除两点，该种类图片减少2
+				map[marked.x][marked.y] = map[s.x][s.y] = 0;	// 对应棋盘置为空
+				marked=null;									// 已标记点置空
+				Hints.delete(tmp);								// 从可行解集合中删除相关可行对
+				rest -= 2;										// 棋盘上剩余点减少2
 				/*//for debug use
 				System.out.printf("(%d,%d):%d - ", tmp.start.x, tmp.start.y, tmp.kind);
 				if(tmp.corner1!=null) {
 					System.out.printf("(%d,%d) - ", tmp.corner1.x, tmp.corner1.y);				
 					if(tmp.corner2!=null) System.out.printf("(%d,%d) - ", tmp.corner2.x, tmp.corner2.y);
 				}
-				System.out.printf("(%d,%d)\n", tmp.end.x, tmp.end.y);*/				
+				System.out.printf("(%d,%d)\n", tmp.end.x, tmp.end.y);*/
+				//Hints.print();
+				if(Hints.empty()){								// 若可行解集合空了， 则再次全盘搜索，若搜索无解则刷新棋盘
+					AddSolution();
+					if(Hints.empty()){
+						Reshuffle();
+						reshuffle = true;
+					}
+				}
 				return tmp;
 			}
 		}
 		return null;
 	}
 	
+	public boolean isEmpty(){									// 判断棋盘是否全部为空，即游戏是否结束
+		if (rest <= 0) return true;
+		else return false;
+	}
+	
 	public Spot getMarked(){
 		return marked;
 	}
 	
-	public Solution GiveHint(){
+	public Solution GiveHint(){									// 给提示， 从可行解集合中输出一个即可，若可行解集合为空，处理同上
+		Solution tmp = Hints.getOne();
+		//Hints.print();
+		if(tmp != null) return tmp;
+		else{
+			AddSolution();
+			tmp = Hints.getOne();
+			//Hints.print();
+			if(tmp!=null) return tmp;
+		}
+		Reshuffle();
 		return null;
 	}
 }
